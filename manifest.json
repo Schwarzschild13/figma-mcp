@@ -1,16 +1,12 @@
 {
     "name": "Theme Switcher",
-    "id": "theme-switcher",
     "api": "1.0.0",
     "main": "dist/code.js",
     "ui": "dist/ui.html",
-    "editorType": [
-        "figma"
-    ],
+    "editorType": ["figma"],
     "networkAccess": {
-        "allowedDomains": [
-            "*"
-        ],
-        "reasoning": "Required for fetching external resources"
+      "allowedDomains": ["*"],
+      "reasoning": "Required to load Excel themes"
     }
-}
+  }
+  
