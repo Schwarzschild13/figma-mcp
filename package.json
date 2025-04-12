@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "run-s build:ui build:plugin",
-    "build:ui": "vite build -c vite.config.ui.ts && cp dist/index.html dist/ui.html",
+    "build:ui": "vite build -c vite.config.ui.ts",
     "build:plugin": "vite build -c vite.config.plugin.ts"
   },
   "dependencies": {
