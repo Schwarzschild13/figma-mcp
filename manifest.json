@@ -2,14 +2,15 @@
     "name": "Theme Switcher",
     "id": "theme-switcher",
     "api": "1.0.0",
-    "main": "code.js",
-    "ui": "ui.html",
+    "main": "dist/code.js",
+    "ui": "dist/ui.html",
     "editorType": [
         "figma"
     ],
     "networkAccess": {
         "allowedDomains": [
             "*"
-        ]
+        ],
+        "reasoning": "Required for fetching external resources"
     }
 }
