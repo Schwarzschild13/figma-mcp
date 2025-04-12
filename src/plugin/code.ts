@@ -1,14 +1,6 @@
-/// <reference types="@figma/plugin-typings" />
-
-interface ApplyModeMessage {
-  type: "apply-mode";
-  mode: string;
-  colors: Record<string, string>;
-}
-
 figma.showUI(__html__, { width: 320, height: 240 });
 
-figma.ui.onmessage = async (msg: ApplyModeMessage) => {
+figma.ui.onmessage = async (msg) => {
   if (msg.type !== "apply-mode") return;
 
   const { mode, colors } = msg;
@@ -20,29 +12,55 @@ figma.ui.onmessage = async (msg: ApplyModeMessage) => {
   }
 
   const allNodes = selection.flatMap(findAllDescendants);
+  const allVariables = await figma.variables.getLocalVariablesAsync();
 
   allNodes.forEach((node) => {
-    const key = node.name?.toLowerCase().trim();
-    const hex = colors[key];
+    // ======== FILLS =========
+    if ("fills" in node && Array.isArray(node.fills)) {
+      const updatedFills = node.fills.map((paint) => {
+        if (paint?.boundVariableId) {
+          const variable = allVariables.find(
+            (v) => v.id === paint.boundVariableId
+          );
+          const hex = colors[variable?.name?.toLowerCase()?.trim() || ""];
 
-    // Skip if no matching token or invalid hex
-    if (!hex || !/^#[0-9A-Fa-f]{6}$/.test(hex)) return;
-
-    const rgb = hexToRGB(hex);
-
-    // Apply fill color for most elements (except text)
-    if ("fills" in node && node.type !== "TEXT") {
-      node.fills = [{ type: "SOLID", color: rgb }];
+          if (hex && /^#[0-9A-Fa-f]{6}$/.test(hex)) {
+            return {
+              ...paint,
+              type: "SOLID",
+              color: hexToRGB(hex),
+              opacity: 1,
+              boundVariableId: undefined,
+            };
+          }
+        }
+        return paint;
+      });
+      node.fills = updatedFills;
     }
 
-    // Apply text color for text nodes
-    if (node.type === "TEXT" && "fills" in node) {
-      node.fills = [{ type: "SOLID", color: rgb }];
-    }
+    // ======== STROKES =========
+    if ("strokes" in node && Array.isArray(node.strokes)) {
+      const updatedStrokes = node.strokes.map((paint) => {
+        if (paint?.boundVariableId) {
+          const variable = allVariables.find(
+            (v) => v.id === paint.boundVariableId
+          );
+          const hex = colors[variable?.name?.toLowerCase()?.trim() || ""];
 
-    // Apply stroke color if supported
-    if ("strokes" in node) {
-      node.strokes = [{ type: "SOLID", color: rgb }];
+          if (hex && /^#[0-9A-Fa-f]{6}$/.test(hex)) {
+            return {
+              ...paint,
+              type: "SOLID",
+              color: hexToRGB(hex),
+              opacity: 1,
+              boundVariableId: undefined,
+            };
+          }
+        }
+        return paint;
+      });
+      node.strokes = updatedStrokes;
     }
   });
 
