@@ -13,7 +13,7 @@ figma.ui.onmessage = async (msg) => {
 
   const allNodes = selection.flatMap(findAllDescendants);
   const allVariables = await figma.variables.getLocalVariablesAsync();
-  figma.notify("Variables found: " + allVariables.map(v => v.name + ':' + v.id).join(', '));
+  const varIdToName = Object.fromEntries(allVariables.map(v => [v.id, v.name.toLowerCase()]));
 
   const themeColorRGBMap = {};
   for (const [tokenName, hex] of Object.entries(colors)) {
@@ -23,64 +23,77 @@ figma.ui.onmessage = async (msg) => {
   }
 
   allNodes.forEach((node) => {
-    // ======== FILLS =========
-    if ("fills" in node && Array.isArray(node.fills)) {
-      const updatedFills = node.fills.map((paint) => {
-        if (paint && paint.type === 'SOLID' && paint.color) {
-          for (const [tokenName, rgb] of Object.entries(themeColorRGBMap)) {
-            const originalVar = allVariables.find(v => v.name.toLowerCase() === tokenName);
-            if (!originalVar || !originalVar.valuesByMode) continue;
-
-            const valueEntry = Object.entries(originalVar.valuesByMode).find(([modeKey, value]) => {
-              return value.r.toFixed(2) === paint.color.r.toFixed(2) &&
-                     value.g.toFixed(2) === paint.color.g.toFixed(2) &&
-                     value.b.toFixed(2) === paint.color.b.toFixed(2);
-            });
-
-            if (valueEntry) {
-              figma.notify("Matched color: " + tokenName);
-              return {
-                type: 'SOLID',
-                color: rgb,
-                opacity: paint.opacity != null ? paint.opacity : 1,
-                visible: paint.visible != null ? paint.visible : true
-              };
-            }
-          }
-        }
-        return paint;
-      });
-      node.fills = updatedFills;
+    if (typeof node.getPluginData !== 'function' || typeof node.setPluginData !== 'function') {
+      return;
     }
 
-    // ======== STROKES =========
-    if ("strokes" in node && Array.isArray(node.strokes)) {
-      const updatedStrokes = node.strokes.map((paint) => {
-        if (paint && paint.type === 'SOLID' && paint.color) {
-          for (const [tokenName, rgb] of Object.entries(themeColorRGBMap)) {
-            const originalVar = allVariables.find(v => v.name.toLowerCase() === tokenName);
-            if (!originalVar || !originalVar.valuesByMode) continue;
+    const storedToken = node.getPluginData("theme-token");
+    if (storedToken && themeColorRGBMap[storedToken.toLowerCase()]) {
+      const rgb = themeColorRGBMap[storedToken.toLowerCase()];
+      if ("fills" in node && Array.isArray(node.fills)) {
+        node.fills = node.fills.map((paint) => {
+          return {
+            type: 'SOLID',
+            color: rgb,
+            opacity: paint.opacity !== undefined ? paint.opacity : 1,
+            visible: paint.visible !== undefined ? paint.visible : true
+          };
+        });
+      }
+      if ("strokes" in node && Array.isArray(node.strokes)) {
+        node.strokes = node.strokes.map((paint) => {
+          return {
+            type: 'SOLID',
+            color: rgb,
+            opacity: paint.opacity !== undefined ? paint.opacity : 1,
+            visible: paint.visible !== undefined ? paint.visible : true
+          };
+        });
+      }
+      return;
+    }
 
-            const valueEntry = Object.entries(originalVar.valuesByMode).find(([modeKey, value]) => {
-              return value.r.toFixed(2) === paint.color.r.toFixed(2) &&
-                     value.g.toFixed(2) === paint.color.g.toFixed(2) &&
-                     value.b.toFixed(2) === paint.color.b.toFixed(2);
-            });
-
-            if (valueEntry) {
-              figma.notify("Matched stroke color: " + tokenName);
-              return {
-                type: 'SOLID',
-                color: rgb,
-                opacity: paint.opacity != null ? paint.opacity : 1,
-                visible: paint.visible != null ? paint.visible : true
-              };
-            }
+    // FIRST TIME: look for bound variable id and track the token name
+    if ("fills" in node && Array.isArray(node.fills)) {
+      node.fills = node.fills.map((paint) => {
+        if (paint && paint.boundVariableId) {
+          const tokenName = varIdToName[paint.boundVariableId];
+          const hex = colors[tokenName];
+          if (tokenName && hex && /^#[0-9A-Fa-f]{6}$/.test(hex)) {
+            const rgb = hexToRGB(hex);
+            node.setPluginData("theme-token", tokenName);
+            figma.notify("Saved token: " + tokenName);
+            return {
+              type: 'SOLID',
+              color: rgb,
+              opacity: paint.opacity !== undefined ? paint.opacity : 1,
+              visible: paint.visible !== undefined ? paint.visible : true
+            };
           }
         }
         return paint;
       });
-      node.strokes = updatedStrokes;
+    }
+
+    if ("strokes" in node && Array.isArray(node.strokes)) {
+      node.strokes = node.strokes.map((paint) => {
+        if (paint && paint.boundVariableId) {
+          const tokenName = varIdToName[paint.boundVariableId];
+          const hex = colors[tokenName];
+          if (tokenName && hex && /^#[0-9A-Fa-f]{6}$/.test(hex)) {
+            const rgb = hexToRGB(hex);
+            node.setPluginData("theme-token", tokenName);
+            figma.notify("Saved stroke token: " + tokenName);
+            return {
+              type: 'SOLID',
+              color: rgb,
+              opacity: paint.opacity !== undefined ? paint.opacity : 1,
+              visible: paint.visible !== undefined ? paint.visible : true
+            };
+          }
+        }
+        return paint;
+      });
     }
   });
 
