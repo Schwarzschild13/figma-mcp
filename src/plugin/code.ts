@@ -13,19 +13,32 @@ figma.ui.onmessage = async (msg) => {
 
   const allNodes = selection.flatMap(findAllDescendants);
   const allVariables = await figma.variables.getLocalVariablesAsync();
+  figma.notify("Variables found: " + allVariables.map(v => v.name + ':' + v.id).join(', '));
+
+  const themeColorRGBMap = {};
+  for (const [tokenName, hex] of Object.entries(colors)) {
+    if (hex && /^#[0-9A-Fa-f]{6}$/.test(hex)) {
+      themeColorRGBMap[tokenName.toLowerCase()] = hexToRGB(hex);
+    }
+  }
 
   allNodes.forEach((node) => {
     // ======== FILLS =========
     if ("fills" in node && Array.isArray(node.fills)) {
       const updatedFills = node.fills.map((paint) => {
-        if (paint && paint.boundVariableId) {
-          const variable = allVariables.find(function (v) { return v.id === paint.boundVariableId; });
-          if (variable) {
-            const name = variable.name ? variable.name.toLowerCase().trim() : '';
-            const hex = colors[name];
+        if (paint && paint.type === 'SOLID' && paint.color) {
+          for (const [tokenName, rgb] of Object.entries(themeColorRGBMap)) {
+            const originalVar = allVariables.find(v => v.name.toLowerCase() === tokenName);
+            if (!originalVar || !originalVar.valuesByMode) continue;
 
-            if (hex && /^#[0-9A-Fa-f]{6}$/.test(hex)) {
-              const rgb = hexToRGB(hex);
+            const valueEntry = Object.entries(originalVar.valuesByMode).find(([modeKey, value]) => {
+              return value.r.toFixed(2) === paint.color.r.toFixed(2) &&
+                     value.g.toFixed(2) === paint.color.g.toFixed(2) &&
+                     value.b.toFixed(2) === paint.color.b.toFixed(2);
+            });
+
+            if (valueEntry) {
+              figma.notify("Matched color: " + tokenName);
               return {
                 type: 'SOLID',
                 color: rgb,
@@ -43,14 +56,19 @@ figma.ui.onmessage = async (msg) => {
     // ======== STROKES =========
     if ("strokes" in node && Array.isArray(node.strokes)) {
       const updatedStrokes = node.strokes.map((paint) => {
-        if (paint && paint.boundVariableId) {
-          const variable = allVariables.find(function (v) { return v.id === paint.boundVariableId; });
-          if (variable) {
-            const name = variable.name ? variable.name.toLowerCase().trim() : '';
-            const hex = colors[name];
+        if (paint && paint.type === 'SOLID' && paint.color) {
+          for (const [tokenName, rgb] of Object.entries(themeColorRGBMap)) {
+            const originalVar = allVariables.find(v => v.name.toLowerCase() === tokenName);
+            if (!originalVar || !originalVar.valuesByMode) continue;
 
-            if (hex && /^#[0-9A-Fa-f]{6}$/.test(hex)) {
-              const rgb = hexToRGB(hex);
+            const valueEntry = Object.entries(originalVar.valuesByMode).find(([modeKey, value]) => {
+              return value.r.toFixed(2) === paint.color.r.toFixed(2) &&
+                     value.g.toFixed(2) === paint.color.g.toFixed(2) &&
+                     value.b.toFixed(2) === paint.color.b.toFixed(2);
+            });
+
+            if (valueEntry) {
+              figma.notify("Matched stroke color: " + tokenName);
               return {
                 type: 'SOLID',
                 color: rgb,
