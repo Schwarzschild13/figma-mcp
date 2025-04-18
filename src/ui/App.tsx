@@ -23,7 +23,6 @@ const App: React.FC = () => {
         header: 1,
       }) as string[][];
 
-      // Assuming the first row contains headers: ['Token', 'Light', 'Dark', ...]
       const [headers, ...rows] = jsonData;
       const modes = headers.slice(1); // ['Light', 'Dark', ...]
       const parsedData: { [mode: string]: ThemeData } = {};
@@ -64,6 +63,17 @@ const App: React.FC = () => {
     );
   };
 
+  const handleReset = () => {
+    parent.postMessage(
+      {
+        pluginMessage: {
+          type: "reset-theme",
+        },
+      },
+      "*"
+    );
+  };
+
   return (
     <div style={{ padding: "16px", fontFamily: "sans-serif" }}>
       <h2>Theme Switcher</h2>
@@ -87,6 +97,9 @@ const App: React.FC = () => {
           </div>
           <button onClick={handleApply} style={{ marginTop: "16px" }}>
             Apply Theme
+          </button>
+          <button onClick={handleReset} style={{ marginTop: "8px", backgroundColor: "#eee" }}>
+            Reset Theme
           </button>
         </>
       )}

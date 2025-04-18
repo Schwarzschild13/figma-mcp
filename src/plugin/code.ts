@@ -4,6 +4,70 @@ figma.showUI(__html__, { width: 320, height: 240 });
 const originalBindings = {}; // Stores nodeId -> variableName
 
 figma.ui.onmessage = async (msg) => {
+  if (msg.type === 'reset-theme') {
+    const selection = figma.currentPage.selection;
+    const allVariables = await figma.variables.getLocalVariablesAsync();
+    const allNodes = selection.flatMap(findAllDescendants);
+  
+    for (var i = 0; i < allNodes.length; i++) {
+      const node = allNodes[i];
+      const nodeId = node.id;
+      const token = originalBindings[nodeId];
+  
+      if (!token) continue;
+  
+      const variable = allVariables.find(function(v) {
+        return v.name.toLowerCase() === token.toLowerCase();
+      });
+      if (!variable) continue;
+  
+      if ("fills" in node && Array.isArray(node.fills)) {
+        node.fills = node.fills.map(function(paint) {
+          if (paint && paint.type === 'SOLID') {
+            return {
+              type: 'SOLID',
+              visible: true,
+              opacity: paint.opacity || 1,
+              color: paint.color,
+              boundVariables: {
+                color: {
+                  type: "VARIABLE_ALIAS",
+                  id: variable.id
+                }
+              }
+            };
+          }
+          return paint;
+        });
+      }
+  
+      if ("strokes" in node && Array.isArray(node.strokes)) {
+        node.strokes = node.strokes.map(function(paint) {
+          if (paint && paint.type === 'SOLID') {
+            return {
+              type: 'SOLID',
+              visible: true,
+              opacity: paint.opacity || 1,
+              color: paint.color,
+              boundVariables: {
+                color: {
+                  type: "VARIABLE_ALIAS",
+                  id: variable.id
+                }
+              }
+            };
+          }
+          return paint;
+        });
+      }
+    }
+  
+    figma.notify("✅ Theme reset to original variables.");
+    return;
+  }
+  
+  
+
   if (msg.type !== 'apply-mode') return;
 
   const mode = msg.mode;
